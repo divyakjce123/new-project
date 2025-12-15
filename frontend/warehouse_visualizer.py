@@ -1,4 +1,4 @@
-# frontend/warehouse_visualizer.py (CORRECTED VERSION)
+# frontend/warehouse_visualizer.py (UPDATED VERSION)
 import dash
 from dash import dcc, html, Input, Output, State, ALL, MATCH, ctx, no_update
 import dash_bootstrap_components as dbc
@@ -47,7 +47,7 @@ def create_cube_vertices(x0, y0, z0, width, length, height):
     
     # Define triangles for the cube (12 triangles)
     i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
-    j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
+    j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 7]
     k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
     
     return {'x': vertices['x'], 'y': vertices['y'], 'z': vertices['z'], 'i': i, 'j': j, 'k': k}
@@ -152,12 +152,12 @@ sidebar = html.Div([
     blocks_config_card,
     controls_card,
     status_card
-], style={"maxHeight": "95vh", "overflowY": "auto", "padding": "10px"})
+], style={"maxHeight": "95vh", "overflowY": "auto", "padding": "1px"})
 
 main_content = dbc.Container([
     dbc.Row([
         dbc.Col(html.H1("3D Warehouse Visualizer", 
-                       className="text-center text-primary my-3"), width=12)
+                        className="text-center text-primary my-3"), width=12)
     ]),
     dbc.Row([
         dbc.Col(sidebar, width=3, className="bg-light border-end"),
@@ -179,10 +179,89 @@ main_content = dbc.Container([
 
 app.layout = main_content
 
+# --- Pallet Configuration Template ---
+def create_pallet_config(pallet_idx, block_idx):
+    """Create a pallet configuration row."""
+    return html.Div([
+        html.Hr(className="my-2"),
+        dbc.Row([
+            dbc.Col(html.Small(f"Pallet {pallet_idx + 1}", className="fw-bold text-primary"), width=12),
+        ], className="mb-1"),
+        
+        # Pallet Configuration
+        dbc.Row([
+            dbc.Col(dbc.Label("Pallet Type", className="small"), width=4),
+            dbc.Col(dbc.Select(
+                id={'type': 'pallet-type', 'index': f"{block_idx}-{pallet_idx}"},
+                options=[
+                    {"label": "Wooden", "value": "wooden"},
+                    {"label": "Plastic", "value": "plastic"},
+                    {"label": "Metal", "value": "metal"},
+                    {"label": "Euro Pallet", "value": "euro"},
+                    {"label": "Display Pallet", "value": "display"},
+                ],
+                value="wooden",
+                className="form-select-sm",
+                size="sm"
+            ), width=8),
+        ], className="mb-1"),
+        
+        dbc.Row([
+            dbc.Col(dbc.Label("Length", className="small"), width=4),
+            dbc.Col(dbc.Input(id={'type': 'pallet-length', 'index': f"{block_idx}-{pallet_idx}"},
+                            type="number", value=120, size="sm"), width=4),
+            dbc.Col(length_unit_dropdown({'type': 'pallet-length-unit', 'index': f"{block_idx}-{pallet_idx}"}, 'cm'), width=4),
+        ], className="mb-1 align-items-center"),
+        
+        dbc.Row([
+            dbc.Col(dbc.Label("Width", className="small"), width=4),
+            dbc.Col(dbc.Input(id={'type': 'pallet-width', 'index': f"{block_idx}-{pallet_idx}"},
+                            type="number", value=80, size="sm"), width=4),
+            dbc.Col(length_unit_dropdown({'type': 'pallet-width-unit', 'index': f"{block_idx}-{pallet_idx}"}, 'cm'), width=4),
+        ], className="mb-1 align-items-center"),
+        
+        dbc.Row([
+            dbc.Col(dbc.Label("Height", className="small"), width=4),
+            dbc.Col(dbc.Input(id={'type': 'pallet-height', 'index': f"{block_idx}-{pallet_idx}"},
+                            type="number", value=15, size="sm"), width=4),
+            dbc.Col(length_unit_dropdown({'type': 'pallet-height-unit', 'index': f"{block_idx}-{pallet_idx}"}, 'cm'), width=4),
+        ], className="mb-1 align-items-center"),
+        
+        dbc.Row([
+            dbc.Col(dbc.Label("Weight", className="small"), width=4),
+            dbc.Col(dbc.Input(id={'type': 'pallet-weight', 'index': f"{block_idx}-{pallet_idx}"},
+                            type="number", value=500, size="sm"), width=4),
+            dbc.Col(weight_unit_dropdown({'type': 'pallet-weight-unit', 'index': f"{block_idx}-{pallet_idx}"}, 'kg'), width=4),
+        ], className="mb-2 align-items-center"),
+        
+        # Pallet Position
+        html.H6("Pallet Position", className="mt-3 fw-bold text-primary"),
+        dbc.Row([
+            dbc.Col(dbc.Label("Floor", className="small"), width=6),
+            dbc.Col(dbc.Input(id={'type': 'pallet-floor', 'index': f"{block_idx}-{pallet_idx}"},
+                            type="number", value=1, min=1, size="sm"), width=6),
+            dbc.Col(dbc.Label("Row", className="small"), width=6),
+            dbc.Col(dbc.Input(id={'type': 'pallet-row', 'index': f"{block_idx}-{pallet_idx}"},
+                            type="number", value=1, min=1, size="sm"), width=6),
+            dbc.Col(dbc.Label("Rack", className="small"), width=6),
+            dbc.Col(dbc.Input(id={'type': 'pallet-rack', 'index': f"{block_idx}-{pallet_idx}"},
+                            type="number", value=1, min=1, size="sm"), width=6),
+
+        ], className="mb-1"),
+
+        
+        # Remove button
+        dbc.Row([
+            dbc.Col(dbc.Button("Remove", id={'type': 'remove-pallet', 'index': f"{block_idx}-{pallet_idx}"},
+                             color="danger", size="sm", className="w-100"), width=12)
+        ], className="mb-2")
+    ], id={'type': 'pallet-config', 'index': f"{block_idx}-{pallet_idx}"},
+       className="border rounded p-2 mb-2 bg-light")
+
 # --- Block Configuration Template ---
 def create_block_config(block_index):
     """Create a block configuration card with racks and pallet settings."""
-    return dbc.AccordionItem([
+    return dbc.AccordionItem ([ 
         # Racks Configuration
         html.H6("Racks Configuration", className="mt-2 fw-bold text-primary"),
         
@@ -204,6 +283,38 @@ def create_block_config(block_index):
             dbc.Col(dbc.Input(id={'type': 'rack-count', 'index': block_index}, 
                              type="number", value=4, min=1, size="sm"), width=6),
         ], className="mb-3"),
+
+        # Rack Gaps
+        html.H6("Rack Gaps", className="mt-3 fw-bold text-primary"),
+
+        html.Div([
+            dbc.Row([
+                dbc.Col(
+                    dbc.Label(f"Gap between Rack {i+1}-{i+2}", className="small"),
+            width=5
+                ),
+                dbc.Col(
+                    dbc.Input(
+                        id={'type': 'rack-gap', 'index': f"{block_index}-{i}"},
+                        type="number",
+                        value=20,
+                        min=0,
+                        size="sm"
+                    ),
+                    width=4
+                ),
+                dbc.Col(
+                    length_unit_dropdown(
+                        {'type': 'rack-gap-unit', 'index': f"{block_index}-{i}"},
+                        'cm'
+                    )        ,
+                    width=3
+                ),
+            ], className="mb-1 align-items-center")
+            for i in range(3)   # default: rack 1-2, 2-3, 3-4
+        ]),
+
+
         
         # Wall gaps
         html.H6("Wall Gaps", className="mt-3 fw-bold text-primary"),
@@ -235,59 +346,19 @@ def create_block_config(block_index):
             dbc.Col(length_unit_dropdown({'type': 'gap-right-unit', 'index': block_index}, 'cm'), width=4),
         ], className="mb-3"),
         
-        # Rack gaps container
-        html.Div(id={'type': 'rack-gaps-container', 'index': block_index}, className="mt-2"),
-        
         html.Hr(),
         
-        # Pallet Configuration
-        html.H6("Pallet Configuration", className="mt-3 fw-bold text-success"),
-        
-        dbc.Row([
-            dbc.Col(dbc.Label("Pallet Type", className="small fw-bold"), width=5),
-            dbc.Col(dbc.Select(
-                id={'type': 'pallet-type', 'index': block_index},
-                options=[
-                    {"label": "Wooden", "value": "wooden"},
-                    {"label": "Plastic", "value": "plastic"},
-                    {"label": "Metal", "value": "metal"},
-                    {"label": "Euro Pallet", "value": "euro"},
-                    {"label": "Display Pallet", "value": "display"},
-                ],
-                value="wooden",
-                className="form-select-sm",
-                size="sm"
-            ), width=7),
-        ], className="mb-2"),
-        
-        input_with_unit("Pallet Length", {'type': 'pallet-length', 'index': block_index},
-                       {'type': 'pallet-length-unit', 'index': block_index}, 120, 'length', 'cm'),
-        input_with_unit("Pallet Width", {'type': 'pallet-width', 'index': block_index},
-                       {'type': 'pallet-width-unit', 'index': block_index}, 80, 'length', 'cm'),
-        input_with_unit("Pallet Height", {'type': 'pallet-height', 'index': block_index},
-                       {'type': 'pallet-height-unit', 'index': block_index}, 15, 'length', 'cm'),
-        input_with_unit("Pallet Weight", {'type': 'pallet-weight', 'index': block_index},
-                       {'type': 'pallet-weight-unit', 'index': block_index}, 500, 'weight', 'kg'),
-        
-        # Pallet Position
-        html.H6("Pallet Position", className="mt-3 fw-bold text-info"),
-        dbc.Row([
-            dbc.Col(dbc.Label("Floor", className="small"), width=4),
-            dbc.Col(dbc.Input(id={'type': 'pallet-floor', 'index': block_index}, 
-                             type="number", value=1, min=1, size="sm"), width=4),
-            dbc.Col(dbc.Label("Row", className="small"), width=4),
-            dbc.Col(dbc.Input(id={'type': 'pallet-row', 'index': block_index}, 
-                             type="number", value=1, min=1, size="sm"), width=4),
-        ], className="mb-2"),
-        
-        dbc.Row([
-            dbc.Col(dbc.Label("Column", className="small"), width=4),
-            dbc.Col(dbc.Input(id={'type': 'pallet-col', 'index': block_index}, 
-                             type="number", value=1, min=1, size="sm"), width=4),
-            dbc.Col(width=4)
-        ], className="mb-3"),
+        # Pallet Configuration Section
+        html.Div([
+            html.H6("Pallet Configuration", className="mt-3 fw-bold text-success"),
+            dbc.Button([html.I(className="fas fa-plus me-1"), "Add Pallet"], 
+                      id={'type': 'add-pallet', 'index': block_index},
+                      color="success", size="sm", className="mb-3"),
+            html.Div(id={'type': 'pallets-container', 'index': block_index}, className="mt-2")
+        ])
         
     ], title=f"Block {block_index + 1} Configuration", item_id=f"block-{block_index}")
+
 
 # --- Callbacks ---
 
@@ -312,28 +383,73 @@ def update_blocks_container(num_blocks):
     Input({'type': 'rack-count', 'index': MATCH}, 'value')
 )
 def update_rack_gaps_inputs(num_racks):
+    block_index = MATCH['index']
     if num_racks is None or num_racks < 2:
-        return html.Small("No gaps needed for single rack", className="text-muted")
+        return html.Small("No gaps needed for single rack", className="text-muted fst-italic")
     
     gaps_container = [
-        html.H6("Gaps Between Racks", className="small fw-bold text-warning mt-2"),
-        html.Small("Enter gap between consecutive racks (rack 1-2, 2-3, etc.)", 
-                  className="text-muted mb-2 d-block")
+        html.H6("Gaps Between Racks", className="small fw-bold text-dark mt-2"),
     ]
     
     for i in range(num_racks - 1):
         gaps_container.append(
             dbc.Row([
-                dbc.Col(dbc.Label(f"Gap Rack {i+1}-{i+2}", className="small"), width=4),
-                dbc.Col(dbc.Input(id={'type': 'rack-gap', 'index': f"{MATCH['index']}-{i}"}, 
+                dbc.Col(dbc.Label(f"Gap between Rack {i+1}-{i+2}", className="small"), width=5),
+                dbc.Col(dbc.Input(id={'type': 'rack-gap', 'index': f"{block_index}-{i}"}, 
                                  type="number", value=20, min=0, size="sm"), width=4),
-                dbc.Col(length_unit_dropdown({'type': 'rack-gap-unit', 'index': f"{MATCH['index']}-{i}"}, 'cm'), width=4),
+                dbc.Col(length_unit_dropdown({'type': 'rack-gap-unit', 'index': f"{block_index}-{i}"}, 'cm'), width=3),
             ], className="mb-1 align-items-center")
         )
     
     return html.Div(gaps_container)
 
-# 3. Toggle 2D/3D view
+# 3. Add/remove pallets
+@app.callback(
+    Output({'type': 'pallets-container', 'index': MATCH}, 'children'),
+    [Input({'type': 'add-pallet', 'index': MATCH}, 'n_clicks'),
+     Input({'type': 'remove-pallet', 'index': ALL}, 'n_clicks')],
+    [State({'type': 'pallets-container', 'index': MATCH}, 'children'),
+     State({'type': 'add-pallet', 'index': MATCH}, 'id')]
+)
+def manage_pallets(add_clicks, remove_clicks, current_children, button_id):
+    ctx_triggered = ctx.triggered_id
+    block_idx = button_id['index']
+    
+    if current_children is None:
+        current_children = []
+    
+    # Initialize pallet count
+    if not current_children:
+        pallet_count = 0
+    else:
+        # Count existing pallets
+        pallet_count = len(current_children)
+    
+    # Add pallet
+    if ctx_triggered and ctx_triggered['type'] == 'add-pallet':
+        new_pallet = create_pallet_config(pallet_count, block_idx)
+        if isinstance(current_children, list):
+            return current_children + [new_pallet]
+        else:
+            return [new_pallet]
+    
+    # Remove pallet
+    elif ctx_triggered and ctx_triggered['type'] == 'remove-pallet':
+        pallet_to_remove = ctx_triggered['index']
+        
+        # Parse the pallet index to remove
+        if isinstance(current_children, list):
+            # Find and remove the pallet
+            updated_children = []
+            for child in current_children:
+                if 'props' in child and 'id' in child['props']:
+                    if child['props']['id']['index'] != pallet_to_remove:
+                        updated_children.append(child)
+            return updated_children
+    
+    return current_children
+
+# 4. Toggle 2D/3D view
 @app.callback(
     [Output("btn-2d", "outline"), Output("btn-3d", "outline"),
      Output("btn-2d", "color"), Output("btn-3d", "color")],
@@ -348,7 +464,7 @@ def toggle_view_mode(n2d, n3d, btn2d_outline, btn3d_outline):
         return True, False, "secondary", "primary"
     return btn2d_outline, btn3d_outline, "secondary", "primary"
 
-# 4. Main layout generation callback
+# 5. Main layout generation callback
 @app.callback(
     [Output("warehouse-graph", "figure"),
      Output("status-text", "children")],
@@ -373,21 +489,12 @@ def toggle_view_mode(n2d, n3d, btn2d_outline, btn3d_outline):
      State({'type': 'gap-left-unit', 'index': ALL}, 'value'),
      State({'type': 'gap-right', 'index': ALL}, 'value'),
      State({'type': 'gap-right-unit', 'index': ALL}, 'value'),
+     # Rack gaps
      State({'type': 'rack-gap', 'index': ALL}, 'value'),
      State({'type': 'rack-gap-unit', 'index': ALL}, 'value'),
      State({'type': 'rack-gap', 'index': ALL}, 'id'),
-     State({'type': 'pallet-type', 'index': ALL}, 'value'),
-     State({'type': 'pallet-length', 'index': ALL}, 'value'),
-     State({'type': 'pallet-length-unit', 'index': ALL}, 'value'),
-     State({'type': 'pallet-width', 'index': ALL}, 'value'),
-     State({'type': 'pallet-width-unit', 'index': ALL}, 'value'),
-     State({'type': 'pallet-height', 'index': ALL}, 'value'),
-     State({'type': 'pallet-height-unit', 'index': ALL}, 'value'),
-     State({'type': 'pallet-weight', 'index': ALL}, 'value'),
-     State({'type': 'pallet-weight-unit', 'index': ALL}, 'value'),
-     State({'type': 'pallet-floor', 'index': ALL}, 'value'),
-     State({'type': 'pallet-row', 'index': ALL}, 'value'),
-     State({'type': 'pallet-col', 'index': ALL}, 'value')],
+     # Pallets
+     State({'type': 'pallets-container', 'index': ALL}, 'children')],
     prevent_initial_call=True
 )
 def generate_or_clear_layout(generate_clicks, clear_clicks,
@@ -400,10 +507,7 @@ def generate_or_clear_layout(generate_clicks, clear_clicks,
                             gap_left_list, gap_left_unit_list,
                             gap_right_list, gap_right_unit_list,
                             rack_gap_values, rack_gap_units, rack_gap_ids,
-                            pallet_types, pallet_lengths, pallet_length_units,
-                            pallet_widths, pallet_width_units, pallet_heights, pallet_height_units,
-                            pallet_weights, pallet_weight_units,
-                            pallet_floors, pallet_rows, pallet_cols):
+                            pallets_containers):
     
     ctx_triggered = ctx.triggered_id
     
@@ -448,6 +552,9 @@ def generate_or_clear_layout(generate_clicks, clear_clicks,
             'euro': '#32CD32',      # LimeGreen
             'display': '#FFD700'    # Gold
         }
+        
+        # Store all pallets for backend
+        all_pallets = []
         
         # Process each block
         for block_idx in range(num_blocks):
@@ -543,13 +650,18 @@ def generate_or_clear_layout(generate_clicks, clear_clicks,
                 
                 # Calculate rack gaps for this block
                 block_gaps = []
-                for gap_id_dict in rack_gap_ids:
-                    if str(block_idx) in gap_id_dict['index']:
-                        gap_idx = int(gap_id_dict['index'].split('-')[-1])
-                        if gap_idx < len(rack_gap_values):
-                            gap_value = rack_gap_values[gap_idx] or 0
-                            gap_unit = rack_gap_units[gap_idx]
-                            block_gaps.append(to_cm(gap_value, gap_unit))
+                if rack_gap_ids:
+                    for gap_id_dict in rack_gap_ids:
+                        if gap_id_dict and 'index' in gap_id_dict:
+                            if str(block_idx) in gap_id_dict['index']:
+                                parts = gap_id_dict['index'].split('-')
+                                if len(parts) >= 2:
+                                    gap_index_in_block = int(parts[-1])
+                                    gap_list_index = rack_gap_ids.index(gap_id_dict)
+                                    if gap_list_index < len(rack_gap_values):
+                                        gap_value = rack_gap_values[gap_list_index] or 0
+                                        gap_unit = rack_gap_units[gap_list_index] if gap_list_index < len(rack_gap_units) else 'cm'
+                                        block_gaps.append(to_cm(gap_value, gap_unit))
                 
                 # Calculate total gaps width
                 total_gaps_width = sum(block_gaps[:racks_per_row-1]) if racks_per_row > 1 else 0
@@ -596,64 +708,6 @@ def generate_or_clear_layout(generate_clicks, clear_clicks,
                                     hoverinfo='name',
                                     showlegend=False
                                 ))
-                            
-                            # Check if this position has a pallet
-                            if (block_idx < len(pallet_floors) and 
-                                pallet_floors[block_idx] == floor_idx + 1 and
-                                block_idx < len(pallet_rows) and 
-                                pallet_rows[block_idx] == row_idx + 1 and
-                                block_idx < len(pallet_cols) and 
-                                pallet_cols[block_idx] == col_idx + 1):
-                                
-                                # Draw pallet
-                                pallet_type = pallet_types[block_idx] if block_idx < len(pallet_types) else 'wooden'
-                                pallet_color = pallet_colors.get(pallet_type, '#8B4513')
-                                
-                                pallet_length_cm = to_cm(pallet_lengths[block_idx] or 120, 
-                                                        pallet_length_units[block_idx] if block_idx < len(pallet_length_units) else 'cm')
-                                pallet_width_cm = to_cm(pallet_widths[block_idx] or 80, 
-                                                       pallet_width_units[block_idx] if block_idx < len(pallet_width_units) else 'cm')
-                                pallet_height_cm = to_cm(pallet_heights[block_idx] or 15, 
-                                                        pallet_height_units[block_idx] if block_idx < len(pallet_height_units) else 'cm')
-                                
-                                # Adjust pallet position to be on rack shelf
-                                pallet_z = rack_z - floor_height/2 + pallet_height_cm/2 + 1  # Slightly above shelf
-                                
-                                if is_3d:
-                                    pallet_points = create_cube_vertices(
-                                        rack_x - pallet_width_cm/2, 
-                                        rack_y - pallet_length_cm/2, 
-                                        pallet_z - pallet_height_cm/2,
-                                        pallet_width_cm, pallet_length_cm, pallet_height_cm
-                                    )
-                                    fig.add_trace(go.Mesh3d(
-                                        x=pallet_points['x'],
-                                        y=pallet_points['y'],
-                                        z=pallet_points['z'],
-                                        i=pallet_points['i'],
-                                        j=pallet_points['j'],
-                                        k=pallet_points['k'],
-                                        opacity=0.8,
-                                        color=pallet_color,
-                                        name=f'Pallet ({pallet_type})',
-                                        hoverinfo='name',
-                                        showlegend=block_idx == 0  # Only show once in legend
-                                    ))
-                                else:
-                                    # 2D pallet representation
-                                    fig.add_trace(go.Scatter(
-                                        x=[rack_x],
-                                        y=[rack_y],
-                                        mode='markers',
-                                        marker=dict(
-                                            size=10,
-                                            color=pallet_color,
-                                            symbol='square'
-                                        ),
-                                        name=f'Pallet ({pallet_type})',
-                                        hoverinfo='name',
-                                        showlegend=block_idx == 0
-                                    ))
                         
                         rack_global_idx += 1
         
@@ -696,7 +750,7 @@ def generate_or_clear_layout(generate_clicks, clear_clicks,
         error_fig = go.Figure(layout={'title': f'Error: {str(e)}'})
         return error_fig, f"Error: {str(e)}"
 
-# 5. Callback to send data to backend API
+# 6. Callback to send data to backend API
 @app.callback(
     Output("status-text", "children", allow_duplicate=True),
     Input("btn-generate", "n_clicks"),
@@ -705,10 +759,32 @@ def generate_or_clear_layout(generate_clicks, clear_clicks,
      State("warehouse-height", "value"), State("warehouse-height-unit", "value"),
      State("num-blocks", "value"),
      State("block-gap", "value"), State("block-gap-unit", "value"),
-     State("warehouse-id", "value")],
+     State("warehouse-id", "value"),
+     # Dynamic states for all blocks
+     State({'type': 'rack-floors', 'index': ALL}, 'value'),
+     State({'type': 'rack-rows', 'index': ALL}, 'value'),
+     State({'type': 'rack-count', 'index': ALL}, 'value'),
+     State({'type': 'gap-front', 'index': ALL}, 'value'),
+     State({'type': 'gap-front-unit', 'index': ALL}, 'value'),
+     State({'type': 'gap-back', 'index': ALL}, 'value'),
+     State({'type': 'gap-back-unit', 'index': ALL}, 'value'),
+     State({'type': 'gap-left', 'index': ALL}, 'value'),
+     State({'type': 'gap-left-unit', 'index': ALL}, 'value'),
+     State({'type': 'gap-right', 'index': ALL}, 'value'),
+     State({'type': 'gap-right-unit', 'index': ALL}, 'value'),
+     # Rack gaps
+     State({'type': 'rack-gap', 'index': ALL}, 'value'),
+     State({'type': 'rack-gap-unit', 'index': ALL}, 'value'),
+     State({'type': 'rack-gap', 'index': ALL}, 'id')],
     prevent_initial_call=True
 )
-def send_to_backend(n_clicks, wl, wlu, ww, wwu, wh, whu, num_blocks, block_gap, block_gap_unit, warehouse_id):
+def send_to_backend(n_clicks, wl, wlu, ww, wwu, wh, whu, num_blocks, block_gap, block_gap_unit, warehouse_id,
+                   rack_floors_list, rack_rows_list, rack_count_list,
+                   gap_front_list, gap_front_unit_list,
+                   gap_back_list, gap_back_unit_list,
+                   gap_left_list, gap_left_unit_list,
+                   gap_right_list, gap_right_unit_list,
+                   rack_gap_values, rack_gap_units, rack_gap_ids):
     """Send configuration to backend API for processing."""
     try:
         # Prepare configuration data
@@ -726,8 +802,47 @@ def send_to_backend(n_clicks, wl, wlu, ww, wwu, wh, whu, num_blocks, block_gap, 
             "block_configs": []
         }
         
-        # Note: In a real implementation, you would collect all block configurations here
-        # and send them to the backend
+        # Add block configurations
+        for block_idx in range(num_blocks):
+            block_config = {
+                "block_index": block_idx,
+                "rack_config": {
+                    "floors": rack_floors_list[block_idx] if block_idx < len(rack_floors_list) else 3,
+                    "rows": rack_rows_list[block_idx] if block_idx < len(rack_rows_list) else 2,
+                    "count": rack_count_list[block_idx] if block_idx < len(rack_count_list) else 4
+                },
+                "wall_gaps": {
+                    "front": gap_front_list[block_idx] if block_idx < len(gap_front_list) else 100,
+                    "front_unit": gap_front_unit_list[block_idx] if block_idx < len(gap_front_unit_list) else 'cm',
+                    "back": gap_back_list[block_idx] if block_idx < len(gap_back_list) else 100,
+                    "back_unit": gap_back_unit_list[block_idx] if block_idx < len(gap_back_unit_list) else 'cm',
+                    "left": gap_left_list[block_idx] if block_idx < len(gap_left_list) else 50,
+                    "left_unit": gap_left_unit_list[block_idx] if block_idx < len(gap_left_unit_list) else 'cm',
+                    "right": gap_right_list[block_idx] if block_idx < len(gap_right_list) else 50,
+                    "right_unit": gap_right_unit_list[block_idx] if block_idx < len(gap_right_unit_list) else 'cm'
+                },
+                "rack_gaps": []
+            }
+            
+            # Add rack gaps for this block
+            if rack_gap_ids:
+                for gap_id_dict in rack_gap_ids:
+                    if gap_id_dict and 'index' in gap_id_dict:
+                        if str(block_idx) in gap_id_dict['index']:
+                            parts = gap_id_dict['index'].split('-')
+                            if len(parts) >= 2:
+                                gap_index = int(parts[-1])
+                                gap_list_index = rack_gap_ids.index(gap_id_dict)
+                                if gap_list_index < len(rack_gap_values):
+                                    gap_config = {
+                                        "from_rack": gap_index + 1,
+                                        "to_rack": gap_index + 2,
+                                        "gap": rack_gap_values[gap_list_index] if gap_list_index < len(rack_gap_values) else 20,
+                                        "unit": rack_gap_units[gap_list_index] if gap_list_index < len(rack_gap_units) else 'cm'
+                                    }
+                                    block_config["rack_gaps"].append(gap_config)
+            
+            config["block_configs"].append(block_config)
         
         # Send to backend
         response = requests.post(
@@ -737,7 +852,8 @@ def send_to_backend(n_clicks, wl, wlu, ww, wwu, wh, whu, num_blocks, block_gap, 
         )
         
         if response.status_code == 200:
-            return f"Sent to backend successfully. Warehouse ID: {warehouse_id}"
+            result = response.json()
+            return f"Backend: {result.get('message', 'Success')}. ID: {warehouse_id}"
         else:
             return f"Backend error: {response.text}"
             
