@@ -1,13 +1,13 @@
-# backend/main.py (UPDATED VERSION)
+# backend/main.py
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+import json
 from warehouse_calc import WarehouseCalculator
 
 app = FastAPI(title="Warehouse 3D Visualizer API")
 
-# Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Data Models ---
+warehouse_data = {}
 
 class Dimensions(BaseModel):
     length: float
@@ -32,10 +32,9 @@ class Position(BaseModel):
 class PalletConfig(BaseModel):
     type: str
     weight: float
-    length: float
-    width: float
-    height: float
-    unit: str = "cm"
+    length_cm: float 
+    width_cm: float
+    height_cm: float
     color: str = "#8B4513"
     position: Position
 
@@ -43,11 +42,7 @@ class RackConfig(BaseModel):
     num_floors: int
     num_rows: int
     num_racks: int
-    gap_between_racks: float = 0
     custom_gaps: List[float] = []
-    gap_unit: str = "cm"
-    
-    # Wall gaps
     gap_front: float
     gap_back: float
     gap_left: float
@@ -57,7 +52,7 @@ class RackConfig(BaseModel):
 class BlockConfig(BaseModel):
     block_index: int
     rack_config: RackConfig
-    pallet_configs: List[PalletConfig]  # Changed to support multiple pallets
+    pallet_configs: List[PalletConfig]
 
 class WarehouseConfig(BaseModel):
     id: str
@@ -67,34 +62,21 @@ class WarehouseConfig(BaseModel):
     block_gap_unit: str = "cm"
     block_configs: List[BlockConfig]
 
-# --- In-Memory Storage ---
-warehouse_data = {}
-
-# --- API Endpoints ---
-
 @app.post("/api/warehouse/create")
 async def create_warehouse(config: WarehouseConfig):
-    """
-    Generates a 3D layout based on the provided configuration.
-    Now supports multiple pallets per block.
-    """
     try:
         calc = WarehouseCalculator()
-        # Convert Pydantic model to dict for the calculator
         config_dict = config.model_dump()
-        
         layout = calc.create_warehouse_layout(config_dict)
+        warehouse_data[config.id] = {"config": config_dict, "layout": layout}
         
-        warehouse_data[config.id] = {
-            "config": config_dict,
-            "layout": layout
-        }
-        
-        return {
-            "success": True,
-            "warehouse_id": config.id,
-            "layout": layout
-        }
+        print("\n" + "="*50)
+        print(f" NEW WAREHOUSE CREATED: {config.id}")
+        print("="*50)
+        print(json.dumps(config_dict, indent=2))
+        print("="*50 + "\n")
+
+        return {"success": True, "warehouse_id": config.id, "layout": layout}
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -102,16 +84,12 @@ async def create_warehouse(config: WarehouseConfig):
 
 @app.post("/api/warehouse/validate")
 async def validate_config(config: WarehouseConfig):
-    """
-    Checks if the configuration is physically possible.
-    """
     try:
         calc = WarehouseCalculator()
-        # Perform a dry-run calculation
         calc.create_warehouse_layout(config.model_dump())
-        return {"valid": True, "message": "Configuration looks good!"}
-    except ValueError as e:
-        return {"valid": False, "message": str(e)}
+        return {"valid": True, "message": "Configuration is valid."}
+    except Exception as e:
+        return {"valid": False, "message": f"Validation Failed: {str(e)}"}
 
 @app.get("/api/warehouse/{warehouse_id}")
 async def get_warehouse(warehouse_id: str):
@@ -122,38 +100,17 @@ async def get_warehouse(warehouse_id: str):
 @app.delete("/api/warehouse/{warehouse_id}/delete")
 async def delete_warehouse(warehouse_id: str):
     if warehouse_id in warehouse_data:
+        deleted_config = warehouse_data[warehouse_id]["config"]
         del warehouse_data[warehouse_id]
-        return {"success": True}
-    raise HTTPException(status_code=404, detail="Warehouse not found")
-
-# New endpoint to add pallet to existing warehouse
-@app.post("/api/warehouse/{warehouse_id}/add-pallet")
-async def add_pallet(warehouse_id: str, block_index: int, pallet: PalletConfig):
-    if warehouse_id not in warehouse_data:
-        raise HTTPException(status_code=404, detail="Warehouse not found")
-    
-    if block_index >= len(warehouse_data[warehouse_id]["config"]["block_configs"]):
-        raise HTTPException(status_code=400, detail="Block index out of range")
-    
-    # Add pallet to block configuration
-    warehouse_data[warehouse_id]["config"]["block_configs"][block_index]["pallet_configs"].append(
-        pallet.model_dump()
-    )
-    
-    # Recalculate layout
-    try:
-        calc = WarehouseCalculator()
-        config_dict = warehouse_data[warehouse_id]["config"]
-        layout = calc.create_warehouse_layout(config_dict)
-        warehouse_data[warehouse_id]["layout"] = layout
         
-        return {
-            "success": True,
-            "message": f"Pallet added to Block {block_index + 1}",
-            "total_pallets": len(warehouse_data[warehouse_id]["config"]["block_configs"][block_index]["pallet_configs"])
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        print("\n" + "!"*50)
+        print(f" WAREHOUSE DELETED: {warehouse_id}")
+        print("!"*50)
+        print(json.dumps(deleted_config, indent=2))
+        print("!"*50 + "\n")
+
+        return {"success": True, "message": f"Warehouse {warehouse_id} deleted."}
+    raise HTTPException(status_code=404, detail="Warehouse not found")
 
 if __name__ == '__main__':
     import uvicorn
