@@ -264,35 +264,27 @@ def toggle_view(n3, n2):
     return False, "primary", True, "secondary"
 
 # --- Main Generator Callback (CORRECTED ORDER) ---
+# --- Main Generator Callback ---
 @app.callback(
     Output("warehouse-graph", "figure"),
+    # ... (Inputs and States remain exactly the same as provided in source code) ...
     Input("btn-generate", "n_clicks"),
     Input("btn-clear", "n_clicks"),
     State("btn-3d", "outline"),
-    
-    # 1. Warehouse Dims
     State("warehouse-length", "value"), State("warehouse-length-unit", "value"),
     State("warehouse-width", "value"), State("warehouse-width-unit", "value"),
     State("warehouse-height", "value"), State("warehouse-height-unit", "value"),
     State("num-blocks", "value"), State("block-gap", "value"), State("block-gap-unit", "value"),
-    
-    # 2. Block Basic Configs
     State({'type': 'rack-floors', 'index': ALL}, 'value'),
     State({'type': 'rack-rows', 'index': ALL}, 'value'),
     State({'type': 'rack-count', 'index': ALL}, 'value'),
-
-    # 3. RACK GAPS (This comes BEFORE Wall Gaps in the decorators list below)
     State({'type': 'rack-gap-input', 'index': ALL}, 'value'),
     State({'type': 'rack-gap-unit', 'index': ALL}, 'value'),
     State({'type': 'rack-gap-input', 'index': ALL}, 'id'), 
-    
-    # 4. WALL GAPS
     State({'type': 'gap-front', 'index': ALL}, 'value'), State({'type': 'gap-front-u', 'index': ALL}, 'value'),
     State({'type': 'gap-back', 'index': ALL}, 'value'), State({'type': 'gap-back-u', 'index': ALL}, 'value'),
     State({'type': 'gap-left', 'index': ALL}, 'value'), State({'type': 'gap-left-u', 'index': ALL}, 'value'),
     State({'type': 'gap-right', 'index': ALL}, 'value'), State({'type': 'gap-right-u', 'index': ALL}, 'value'),
-    
-    # 5. PALLETS
     State({'type': 'pallet-type', 'index': ALL}, 'value'),
     State({'type': 'pallet-len', 'index': ALL}, 'value'), State({'type': 'pallet-len-unit', 'index': ALL}, 'value'),
     State({'type': 'pallet-wid', 'index': ALL}, 'value'), State({'type': 'pallet-wid-unit', 'index': ALL}, 'value'),
@@ -307,25 +299,20 @@ def toggle_view(n3, n2):
 def generate_layout(n_gen, n_clr, is_2d,
                     L, Lu, W, Wu, H, Hu, n_blks, bg, bgu,
                     r_floors, r_rows, r_counts,
-                    # NOTE: Argument order MUST match State order above
-                    gap_vals, gap_units, gap_ids,       # Rack Gaps
-                    gf, gfu, gb, gbu, gl, glu, gr, gru, # Wall Gaps
+                    gap_vals, gap_units, gap_ids,
+                    gf, gfu, gb, gbu, gl, glu, gr, gru,
                     p_types, p_ls, p_lus, p_ws, p_wus, p_hs, p_hus, p_ws_val, p_fs, p_rs, p_racks, p_ids):
     
     if ctx.triggered_id == "btn-clear": return go.Figure()
 
+    # ... (Data gathering logic remains exactly the same) ...
     block_configs = []
     for i in range(n_blks):
-        # Handle Rack Gaps
         block_custom_gaps_cm = []
         for g_idx, g_id_obj in enumerate(gap_ids):
-            # Parse ID safely
             try:
                 if isinstance(g_id_obj, str): g_id_obj = json.loads(g_id_obj.replace("'", '"'))
                 id_idx = str(g_id_obj['index'])
-                
-                # Check if this gap belongs to current block i
-                # ID format: "blockIndex-gapIndex" (e.g. "0-0", "0-1")
                 if id_idx.startswith(f"{i}-"):
                     val = float(gap_vals[g_idx] or 0)
                     unit = gap_units[g_idx]
@@ -334,15 +321,11 @@ def generate_layout(n_gen, n_clr, is_2d,
                 print(f"Skipping gap {g_idx}: {e}")
                 continue
 
-        # Handle Pallets
         block_pallets = []
         for p_idx, p_id_obj in enumerate(p_ids):
             try:
                 if isinstance(p_id_obj, str): p_id_obj = json.loads(p_id_obj.replace("'", '"'))
                 id_idx = str(p_id_obj['index'])
-                
-                # Check if pallet belongs to current block i
-                # ID format: "blockIndex-palletIndex"
                 if id_idx.startswith(f"{i}-"):
                     block_pallets.append({
                         "type": p_types[p_idx],
@@ -393,6 +376,7 @@ def generate_layout(n_gen, n_clr, is_2d,
         print(f"API Error: {e}")
         return go.Figure()
 
+    # --- Visualization Logic Starts Here ---
     fig = go.Figure()
     is_3d = not is_2d
     wh_L, wh_W, wh_H = to_cm(L, Lu), to_cm(W, Wu), to_cm(H, Hu)
@@ -402,38 +386,89 @@ def generate_layout(n_gen, n_clr, is_2d,
         for block in layout_data["blocks"]:
             b_pos, b_dim = block["position"], block["dimensions"]
             
-            # Draw Block
+            # Draw Block Boundary
             bx = [b_pos["x"]-b_dim["width"]/2, b_pos["x"]+b_dim["width"]/2, b_pos["x"]+b_dim["width"]/2, b_pos["x"]-b_dim["width"]/2, b_pos["x"]-b_dim["width"]/2]
             by = [0, 0, b_dim["length"], b_dim["length"], 0]
             if is_3d:
-                fig.add_trace(go.Scatter3d(x=bx, y=by, z=[0]*5, mode='lines', line=dict(color='blue'), name=block["id"]))
+                fig.add_trace(go.Scatter3d(x=bx, y=by, z=[0]*5, mode='lines', line=dict(color='blue'), name=f"Block {block['id']} Boundary"))
             else:
-                fig.add_trace(go.Scatter(x=bx, y=by, mode='lines', line=dict(color='blue', dash='dash'), name=block["id"]))
+                # 2D View: Dashed blue line for block boundary
+                fig.add_trace(go.Scatter(x=bx, y=by, mode='lines', line=dict(color='blue', dash='dash'), name=f"Block {block['id']} Boundary"))
 
             for rack in block.get("racks", []):
                 r_pos, r_dim = rack["position"], rack["dimensions"]
+                r_indices = rack["indices"]
+                
                 # Draw Rack
                 if is_3d:
-                    fig.add_trace(go.Mesh3d(**create_cube_vertices(r_pos["x"]-r_dim["width"]/2, r_pos["y"]-r_dim["length"]/2, r_pos["z"]-r_dim["height"]/2, r_dim["width"], r_dim["length"], r_dim["height"]), opacity=0.1, color='gray', hoverinfo='skip'))
-                elif rack["indices"]["floor"] == 1:
+                    # 3D View: Semi-transparent mesh cuboids
+                    fig.add_trace(go.Mesh3d(
+                        **create_cube_vertices(r_pos["x"]-r_dim["width"]/2, r_pos["y"]-r_dim["length"]/2, r_pos["z"]-r_dim["height"]/2, r_dim["width"], r_dim["length"], r_dim["height"]), 
+                        opacity=0.2, # Increased opacity slightly for better visibility
+                        color='lightgray', 
+                        flatshading=True,
+                        hoverinfo='text',
+                        text=f"Rack: B{block['id'].split('_')[1]} R{r_indices['row']} C{r_indices['col']} F{r_indices['floor']}",
+                        name="Rack Structure"
+                    ))
+                elif r_indices["floor"] == 1:
+                    # 2D View: Solid filled rectangles for ground floor racks, matching the sketch style
                     rx = [r_pos["x"]-r_dim["width"]/2, r_pos["x"]+r_dim["width"]/2, r_pos["x"]+r_dim["width"]/2, r_pos["x"]-r_dim["width"]/2, r_pos["x"]-r_dim["width"]/2]
                     ry = [r_pos["y"]-r_dim["length"]/2, r_pos["y"]-r_dim["length"]/2, r_pos["y"]+r_dim["length"]/2, r_pos["y"]+r_dim["length"]/2, r_pos["y"]-r_dim["length"]/2]
-                    fig.add_trace(go.Scatter(x=rx, y=ry, mode='lines', line=dict(color='gray'), hoverinfo='skip'))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=rx, y=ry, 
+                        mode='lines', 
+                        fill='toself', # Fill the shape
+                        fillcolor='rgba(169, 169, 169, 0.5)', # Semi-transparent gray fill
+                        line=dict(color='black', width=1), # Solid black outline
+                        hoverinfo='text',
+                        text=f"Block {block['id'].split('_')[1]}, Row {r_indices['row']}, Rack {r_indices['col']}",
+                        name="Rack Footprint"
+                    ))
                 
-                # Draw Pallets
+                # Draw Pallets (Logic remains largely the same, just updated names)
                 for p in rack.get("pallets", []):
                     p_dim, col = p["dims"], pallet_colors.get(p["type"], 'brown')
                     if is_3d:
                         pz = r_pos["z"] - r_dim["height"]/2 + p_dim["height"]/2
-                        fig.add_trace(go.Mesh3d(**create_cube_vertices(r_pos["x"]-p_dim["width"]/2, r_pos["y"]-p_dim["length"]/2, pz-p_dim["height"]/2, p_dim["width"], p_dim["length"], p_dim["height"]), color=col, opacity=1.0, name=f"Pallet {p['type']}"))
+                        fig.add_trace(go.Mesh3d(
+                            **create_cube_vertices(r_pos["x"]-p_dim["width"]/2, r_pos["y"]-p_dim["length"]/2, pz-p_dim["height"]/2, p_dim["width"], p_dim["length"], p_dim["height"]), 
+                            color=col, opacity=1.0, name=f"Pallet {p['type']}"
+                        ))
                     else:
-                        fig.add_trace(go.Scatter(x=[r_pos["x"]], y=[r_pos["y"]], mode='markers', marker=dict(color=col, size=10), name=f"Pallet {p['type']}"))
+                        # 2D View: Markers for pallets
+                        fig.add_trace(go.Scatter(
+                            x=[r_pos["x"]], y=[r_pos["y"]], 
+                            mode='markers', marker=dict(color=col, size=8, line=dict(width=1, color='black')), 
+                            name=f"Pallet {p['type']}",
+                            hoverinfo='text',
+                            text=f"{p['type'].title()} Pallet on F{r_indices['floor']}"
+                        ))
 
-    layout_dict = dict(margin=dict(l=0,r=0,t=0,b=0))
+    layout_dict = dict(
+        margin=dict(l=20, r=20, t=20, b=20),
+        # Ensure axes match the sketch labels
+        xaxis=dict(title='Width (X-axis cm)', zeroline=False, showgrid=True),
+        yaxis=dict(title='Length (Y-axis cm)', zeroline=False, showgrid=True),
+        legend=dict(x=1.02, y=1, xanchor="left", yanchor="top", font=dict(size=10))
+    )
+    
     if is_3d:
-        layout_dict['scene'] = dict(xaxis=dict(title='Width (cm)', range=[-wh_W/2-100, wh_W/2+100]), yaxis=dict(title='Length (cm)', range=[0, wh_L+100]), zaxis=dict(title='Height (cm)', range=[0, wh_H+100]), aspectmode='data')
+        layout_dict['scene'] = dict(
+            xaxis=dict(title='Width (X) cm', range=[-wh_W/2-100, wh_W/2+100]), 
+            yaxis=dict(title='Length (Y) cm', range=[0, wh_L+100]), 
+            zaxis=dict(title='Height (Z) cm', range=[0, wh_H+100]), 
+            aspectmode='data',
+            camera=dict(eye=dict(x=1.5, y=-1.5, z=1.5)) # Better initial 3D angle
+        )
     else:
-        layout_dict.update(dict(xaxis=dict(title='Width (cm)', range=[-wh_W/2-100, wh_W/2+100]), yaxis=dict(title='Length (cm)', range=[0, wh_L+100])))
+        # 2D specific layout tweaks
+        layout_dict.update(dict(
+            xaxis=dict(range=[-wh_W/2-50, wh_W/2+50], scaleanchor="y", scaleratio=1),
+            yaxis=dict(range=[-50, wh_L+50]),
+            plot_bgcolor='rgba(240,240,240,0.9)' # Light gray background like paper
+        ))
         
     fig.update_layout(**layout_dict)
     return fig
